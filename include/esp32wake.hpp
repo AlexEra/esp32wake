@@ -41,9 +41,19 @@ class ESP32Wake {
          * 
          * @param tx_pin GPIO pin number for data transmitting
          * @param rx_pin GPIO pin number for data receiving
-         * 
+         * @param baudrate UART baudrate
          */
-        void begin(gpio_num_t tx_pin=GPIO_NUM_1, gpio_num_t rx_pin=GPIO_NUM_3);
+        void begin(
+            gpio_num_t tx_pin = GPIO_NUM_1,
+            gpio_num_t rx_pin = GPIO_NUM_3,
+            int baudrate = 115200
+        );
+
+        /**
+         * @brief Starts the serial connection with fixed Rx and Tx pins
+         * @param baudrate UART baudrate
+         */
+        void begin_default_pins(int baudrate = 115200);
 
         /**
          * @brief Send Wake package through Serial (UART)
@@ -92,6 +102,7 @@ class ESP32Wake {
         bool get_ignore_address_flag(void);
 
     protected:
+        uint8_t bytes[WAKE_MAX_PACKAGE_LEN];
         uart_port_t uart;
         bool ignore_address_flg{false};
         bool start_byte_is_received{false};

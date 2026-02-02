@@ -10,9 +10,9 @@ void ESP32Wake::set_uart_num(uart_port_t uart_prt) {
     }
 }
 
-void ESP32Wake::begin(gpio_num_t tx_pin, gpio_num_t rx_pin) {
+void ESP32Wake::begin(gpio_num_t tx_pin, gpio_num_t rx_pin, int baudrate) {
     uart_config_t cfg = {
-        .baud_rate = 115200,
+        .baud_rate = baudrate,
         .data_bits = UART_DATA_8_BITS,
         .parity = UART_PARITY_DISABLE,
         .stop_bits = UART_STOP_BITS_1,
@@ -28,21 +28,21 @@ void ESP32Wake::begin(gpio_num_t tx_pin, gpio_num_t rx_pin) {
     ESP_ERROR_CHECK(uart_set_pin(uart, tx_pin, rx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
 }
 
+void ESP32Wake::begin_default_pins(int baudrate) {
+    begin(GPIO_NUM_1, GPIO_NUM_3, baudrate);
+}
+
 wake_status_t ESP32Wake::send_package(wake_package_info_t *p_pckg) {
     uint16_t total;
     wake_status_t ret;
-    uint8_t *p_bytes;
 
     p_pckg->crc = wake_calculate_package_crc(p_pckg, ignore_address_flg);
-    p_bytes = new uint8_t[WAKE_MAX_PACKAGE_LEN];
-    ret = wake_package_to_bytes(p_pckg, ignore_address_flg, p_bytes, &total);
+    ret = wake_package_to_bytes(p_pckg, ignore_address_flg, bytes, &total);
     if (ret != WAKE_OK) {
-        delete[] p_bytes;
         return ret;
     }
-    uart_write_bytes(uart, p_bytes, total);
+    uart_write_bytes(uart, bytes, total);
 
-    delete[] p_bytes;
     return WAKE_OK;
 }
 
