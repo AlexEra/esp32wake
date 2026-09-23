@@ -1,16 +1,18 @@
 #include <string.h>
 #include "esp32wake.hpp"
 
+namespace ESPWake {
 
-ESP32Wake::ESP32Wake(uart_port_t uart_prt) : uart{uart_prt} {}
-
-void ESP32Wake::set_uart_num(uart_port_t uart_prt) {
+void ESP32Wake::set_uart_num(uart_port_t uart_prt, bool need_deinstall) {
     if (uart_prt < UART_NUM_MAX) {
+        if (need_deinstall) {
+            ESP_ERROR_CHECK(uart_driver_delete(uart));
+        }
         uart = uart_prt;
     }
 }
 
-void ESP32Wake::begin(gpio_num_t tx_pin, gpio_num_t rx_pin, int baudrate) {
+void ESP32Wake::begin(int baudrate, gpio_num_t tx_pin, gpio_num_t rx_pin) {
     uart_config_t cfg = {
         .baud_rate = baudrate,
         .data_bits = UART_DATA_8_BITS,
@@ -26,10 +28,6 @@ void ESP32Wake::begin(gpio_num_t tx_pin, gpio_num_t rx_pin, int baudrate) {
                                         uart_buffer_size, 20, NULL, 0));
     ESP_ERROR_CHECK(uart_param_config(uart, &cfg));
     ESP_ERROR_CHECK(uart_set_pin(uart, tx_pin, rx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
-}
-
-void ESP32Wake::begin_default_pins(int baudrate) {
-    begin(GPIO_NUM_1, GPIO_NUM_3, baudrate);
 }
 
 wake_status_t ESP32Wake::send_package(wake_package_info_t *p_pckg) {
@@ -55,7 +53,7 @@ len_t ESP32Wake::catch_input_package(wake_package_info_t *p_pckg) {
     uart_read_bytes(uart, &p_pckg->start_byte, 1, pdMS_TO_TICKS(1));
     if (p_pckg->start_byte != FEND) return static_cast<len_t>(ESP32WAKE_NOT_START_BYTE);
 
-    max_bytes_count = (ignore_address_flg) ? 259 : 260;
+    max_bytes_count = (ignore_address_flg) ? WAKE_MAX_SIZE_UNSTUFFED - 1 : WAKE_MAX_SIZE_UNSTUFFED;
     ++bytes_count;
     while (bytes_count < max_bytes_count) {
         if (uart_read_bytes(uart, &b, 1, pdMS_TO_TICKS(1)) > 0) {
@@ -162,3 +160,5 @@ bool ESP32Wake::parse_byte(wake_package_info_t *p_pckg, uint8_t &byte, esp32wake
 void ESP32Wake::set_ignore_address_flag(bool flag) {ignore_address_flg = flag;}
 
 bool ESP32Wake::get_ignore_address_flag(void) {return ignore_address_flg;}
+
+} /* namespace ESPWake */

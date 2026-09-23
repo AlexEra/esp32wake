@@ -2,12 +2,12 @@
 
 #include "driver/gpio.h"
 #include "driver/uart.h"
-extern "C" {
 #include "wake_protocol.h"
-}
 
+namespace ESPWake {
 
 constexpr uint16_t UART_WAIT_TIME = 100;
+constexpr uint16_t WAKE_MAX_SIZE_UNSTUFFED = 260;
 typedef int16_t len_t;
 
 typedef enum {
@@ -17,22 +17,14 @@ typedef enum {
     ESP32WAKE_OK,
 } esp32wake_result_t;
 
-
 class ESP32Wake {
     public:
-        /**
-         * @brief Default constructor 
-         * 
-         * @param uart_prt Hardware UART port number
-         */
-        ESP32Wake(uart_port_t uart_prt=UART_NUM_0);
-
         /**
          * @brief Set UART interface number
          * @param uart_prt  UART port number
          * @retval          None
          */
-        void set_uart_num(uart_port_t uart_prt);
+        void set_uart_num(uart_port_t uart_prt, bool need_deinstall = false);
 
         /**
          * @brief Starts the serial connection with fixed baudrate
@@ -44,16 +36,10 @@ class ESP32Wake {
          * @param baudrate UART baudrate
          */
         void begin(
+            int baudrate = 115200,
             gpio_num_t tx_pin = GPIO_NUM_1,
-            gpio_num_t rx_pin = GPIO_NUM_3,
-            int baudrate = 115200
+            gpio_num_t rx_pin = GPIO_NUM_3
         );
-
-        /**
-         * @brief Starts the serial connection with fixed Rx and Tx pins
-         * @param baudrate UART baudrate
-         */
-        void begin_default_pins(int baudrate = 115200);
 
         /**
          * @brief Send Wake package through Serial (UART)
@@ -103,10 +89,12 @@ class ESP32Wake {
 
     protected:
         uint8_t bytes[WAKE_MAX_PACKAGE_LEN];
-        uart_port_t uart;
+        uart_port_t uart{UART_NUM_0};
         bool ignore_address_flg{false};
         bool start_byte_is_received{false};
         len_t bytes_count{0};
         volatile len_t max_bytes_count; 
         volatile bool unst_flag{false};
 };
+
+} /* namespace ESPWake */
