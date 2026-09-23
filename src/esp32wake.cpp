@@ -1,18 +1,20 @@
 #include <string.h>
 #include "esp32wake.hpp"
 
+namespace ESPWake {
 
-ESP32Wake::ESP32Wake(uart_port_t uart_prt) : uart{uart_prt} {}
-
-void ESP32Wake::set_uart_num(uart_port_t uart_prt) {
+void ESP32Wake::set_uart_num(uart_port_t uart_prt, bool need_deinstall) {
     if (uart_prt < UART_NUM_MAX) {
+        if (need_deinstall) {
+            ESP_ERROR_CHECK(uart_driver_delete(uart));
+        }
         uart = uart_prt;
     }
 }
 
-void ESP32Wake::begin(gpio_num_t tx_pin, gpio_num_t rx_pin) {
+void ESP32Wake::begin(int baudrate, gpio_num_t tx_pin, gpio_num_t rx_pin) {
     uart_config_t cfg = {
-        .baud_rate = 115200,
+        .baud_rate = baudrate,
         .data_bits = UART_DATA_8_BITS,
         .parity = UART_PARITY_DISABLE,
         .stop_bits = UART_STOP_BITS_1,
@@ -31,18 +33,14 @@ void ESP32Wake::begin(gpio_num_t tx_pin, gpio_num_t rx_pin) {
 wake_status_t ESP32Wake::send_package(wake_package_info_t *p_pckg) {
     uint16_t total;
     wake_status_t ret;
-    uint8_t *p_bytes;
 
     p_pckg->crc = wake_calculate_package_crc(p_pckg, ignore_address_flg);
-    p_bytes = new uint8_t[WAKE_MAX_PACKAGE_LEN];
-    ret = wake_package_to_bytes(p_pckg, ignore_address_flg, p_bytes, &total);
+    ret = wake_package_to_bytes(p_pckg, ignore_address_flg, bytes, &total);
     if (ret != WAKE_OK) {
-        delete[] p_bytes;
         return ret;
     }
-    uart_write_bytes(uart, p_bytes, total);
+    uart_write_bytes(uart, bytes, total);
 
-    delete[] p_bytes;
     return WAKE_OK;
 }
 
@@ -55,7 +53,7 @@ len_t ESP32Wake::catch_input_package(wake_package_info_t *p_pckg) {
     uart_read_bytes(uart, &p_pckg->start_byte, 1, pdMS_TO_TICKS(1));
     if (p_pckg->start_byte != FEND) return static_cast<len_t>(ESP32WAKE_NOT_START_BYTE);
 
-    max_bytes_count = (ignore_address_flg) ? 259 : 260;
+    max_bytes_count = (ignore_address_flg) ? WAKE_MAX_SIZE_UNSTUFFED - 1 : WAKE_MAX_SIZE_UNSTUFFED;
     ++bytes_count;
     while (bytes_count < max_bytes_count) {
         if (uart_read_bytes(uart, &b, 1, pdMS_TO_TICKS(1)) > 0) {
@@ -162,3 +160,5 @@ bool ESP32Wake::parse_byte(wake_package_info_t *p_pckg, uint8_t &byte, esp32wake
 void ESP32Wake::set_ignore_address_flag(bool flag) {ignore_address_flg = flag;}
 
 bool ESP32Wake::get_ignore_address_flag(void) {return ignore_address_flg;}
+
+} /* namespace ESPWake */
